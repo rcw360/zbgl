@@ -20,7 +20,7 @@ class M3UParser:
         current_group = "Default"
         
         # 检查前 20 行的全局 EPG 元数据
-    for line in lines[:20]:
+        for line in lines[:20]:
             line = line.strip()
             if line.startswith("#EXTM3U"):
                 # 提取 x-tvg-url 或 url-tvg 属性

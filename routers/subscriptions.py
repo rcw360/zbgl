@@ -73,24 +73,42 @@ def get_subscription_channels(sub_id: int, session: Session = Depends(get_sessio
     return channels
 
 async def process_subscription_refresh(session: Session, sub: Subscription) -> int:
-    """同步订阅（在这个事务里干活）"""
-    # 刷新后保持之前的禁用状态
-    disabled_names = {c.name for c in old_channels if not c.is_enabled}
+    """同步订阅（支持 M3U/TXT/Git 混合及多地址）"""
+    # 1. 记住当前已有的状态（禁用状态、检测结果），防止刷新后丢失
+    old_channels = session.exec(select(Channel).where(Channel.subscription_id == sub.id)).all()
     
-    # 清掉旧台
+    # 建立以 URL 为 Key 的状态映射表
+    channel_states = {}
+    for c in old_channels:
+        channel_states[c.url] = {
+            "is_enabled": c.is_enabled,
+            "check_status": c.check_status,
+            "check_date": c.check_date,
+            "check_image": c.check_image
+        }
+    
+    # 2. 清掉旧台
     for c in old_channels:
         session.delete(c)
     
-    # 抓取并解析（M3U/TXT 混合）
+    # 3. 抓取并解析
     channels_data, metadata = await IPTVFetcher.fetch_subscription(sub.url, sub.user_agent, sub.headers)
     
     for item in channels_data:
-        # 恢复禁用状态
-        is_enabled = True
-        if item.get("name") in disabled_names:
-            is_enabled = False
-            
-        channel = Channel(**item, subscription_id=sub.id, is_enabled=is_enabled)
+        # 尝试从映射表中恢复状态
+        url = item.get("url")
+        state = channel_states.get(url, {})
+        
+        is_enabled = state.get("is_enabled", True)
+        
+        channel = Channel(
+            **item, 
+            subscription_id=sub.id, 
+            is_enabled=is_enabled,
+            check_status=state.get("check_status"),
+            check_date=state.get("check_date"),
+            check_image=state.get("check_image")
+        )
         session.add(channel)
     
     sub.last_updated = datetime.utcnow()

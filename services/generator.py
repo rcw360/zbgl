@@ -93,7 +93,7 @@ class M3UGenerator:
         
         for c in channels:
             # 开启后缀显示，就把来源贴在名后面
-    source_tag = f" ({sub_map[c.subscription_id]})" if include_suffix and sub_map and c.subscription_id in sub_map else ""
+            source_tag = f" ({sub_map[c.subscription_id]})" if include_suffix and sub_map and c.subscription_id in sub_map else ""
             display_name = f"{c.name}{source_tag}"
             
             # 构建属性字符串：logo, tvg-id, tvg-name (保留原始名称用于 EPG 匹配)
