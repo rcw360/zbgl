@@ -596,7 +596,12 @@
 
                         // 增加具体格点的时分显示，方便核对
                         const hhmm = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                        dateHtml = `<div style="font-size: 0.75em; opacity: 0.5; margin-top: 2px;">上次检测: ${timeStr} <small>(${hhmm})</small></div>`;
+
+                        // 逻辑：如果已经有 date 但本轮前端没出图(c.visualImage)，标注为“自动检测”
+                        const isAuto = date && !c.visualImage;
+                        const autoTag = isAuto ? `<span style="background: rgba(251,191,36,0.15); color: #fbbf24; padding: 1px 4px; border-radius: 3px; font-size: 0.7em; border: 1px solid rgba(251,191,36,0.2); margin-left: 4px;">自动检测</span>` : '';
+
+                        dateHtml = `<div style="font-size: 0.75em; opacity: 0.5; margin-top: 2px;">上次检测: ${timeStr} <small>(${hhmm})</small> ${autoTag}</div>`;
                     }
 
                     if (c.visualStatus === 'loading') {

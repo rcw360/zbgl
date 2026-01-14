@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 import asyncio
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from database import engine, create_engine, sqlite_url
 from models import SQLModel, Subscription, Channel, OutputSource
@@ -201,16 +201,31 @@ async def auto_update_task():
                                     print(f"[自动同步] 聚合源 {out.id} 开启了同步后深度检测，正在启动...")
                                     try:
                                         from services.stream_checker import StreamChecker
+                                        from services.generator import M3UGenerator
                                         from models import Channel
                                         
-                                        # 获取该聚合源下所有的频道
-                                        all_channels = []
+                                        # 1. 获取该聚合源关联的所有原始频道
+                                        raw_channels = []
                                         for sid in sub_ids:
                                             chs = session.exec(select(Channel).where(Channel.subscription_id == sid)).all()
-                                            all_channels.extend(chs)
+                                            raw_channels.extend(chs)
                                         
-                                        if all_channels:
-                                            print(f"[自动同步] 准备检测 {len(all_channels)} 个频道...")
+                                        # 2. 应用聚合源的过滤逻辑（关键词+正则）
+                                        try:
+                                            keywords = json.loads(out.keywords)
+                                        except:
+                                            keywords = []
+                                        matched_channels = M3UGenerator.filter_channels(raw_channels, out.filter_regex, keywords)
+                                        
+                                        # 3. 智能跳过：仅检测“未测过”或“24小时前检测过”的频道
+                                        check_limit = datetime.utcnow() - timedelta(hours=24)
+                                        pending_channels = [
+                                            c for c in matched_channels 
+                                            if not c.check_date or c.check_date < check_limit
+                                        ]
+
+                                        if pending_channels:
+                                            print(f"[自动同步] 聚合匹配 {len(matched_channels)} 个，其中 {len(pending_channels)} 个需要检测...")
                                             
                                             # 定义带限流的检测函数
                                             # 复用 visual_check_semaphore 或自定义。因为是后台，给 5 个并发足够
@@ -221,7 +236,7 @@ async def auto_update_task():
                                                     res = await StreamChecker.check_stream_visual(ch.url)
                                                     return {**res, "ch_id": ch.id}
 
-                                            tasks = [bounded_check(ch) for ch in all_channels]
+                                            tasks = [bounded_check(ch) for ch in pending_channels]
                                             results = await asyncio.gather(*tasks)
                                             
                                             # 更新数据库
