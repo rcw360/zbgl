@@ -224,17 +224,21 @@ async def auto_update_task():
                                             keywords = []
                                         matched_channels = M3UGenerator.filter_channels(raw_channels, out.filter_regex, keywords)
                                         
-                                        # 3. 智能跳过：仅检测“未测过”或“24小时前检测过”的频道
-                                        check_limit = datetime.utcnow() - timedelta(hours=24)
-                                        pending_channels = [
-                                            c for c in matched_channels 
-                                            if not c.check_date or c.check_date < check_limit
-                                        ]
+                                        # 3. 彻底移除冷却限制：只要开启了自动检测，每次同步都对所有匹配频道进行全量探测
+                                        pending_channels = matched_channels
 
                                         if pending_channels:
-                                            print(f"[自动同步] 聚合匹配 {len(matched_channels)} 个，其中 {len(pending_channels)} 个需要检测...")
+                                            print(f"[自动同步] 聚合匹配 {len(matched_channels)} 个，开始全量深度探测...")
                                             await StreamChecker.run_batch_check(session, pending_channels, source='auto')
+                                            out.last_update_status = "自动更新+深度检测完成"
+                                            session.add(out)
+                                            session.commit()
                                             print(f"[自动同步] 聚合源 {out.id} 自动化深度检测任务完成。")
+                                        else:
+                                            print(f"[自动同步] 聚合源 {out.id} 所有匹配频道近期已测过，跳过。")
+                                            out.last_update_status = "自动更新成功(跳过检测)"
+                                            session.add(out)
+                                            session.commit()
                                     except Exception as vis_e:
                                         print(f"[自动同步] 聚合源 {out.id} 自动化深度检测执行失败: {vis_e}")
                             except Exception as e:
@@ -245,7 +249,7 @@ async def auto_update_task():
         except Exception as outer_e:
             print(f"[自动更新] 循环发生错误: {outer_e}")
             
-        await asyncio.sleep(60) # 每隔 1 分钟检查一次
+        await asyncio.sleep(30) # 每隔 30 秒检查一次，提高 2 分钟测试任务的灵敏度
 
 @app.on_event("startup")
 def on_startup():

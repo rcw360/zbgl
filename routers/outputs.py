@@ -241,18 +241,9 @@ async def run_output_visual_check(output_id: int, force_check: bool = False):
             from services.generator import M3UGenerator
             matched_channels = M3UGenerator.filter_channels(raw_channels, out.filter_regex, keywords)
             
-            # 手动刷新时默认强制执行（force_check=True）
-            if force_check:
-                pending_channels = matched_channels
-                print(f"DEBUG: [后台检测] 强制模式启动，将重新探测全部 {len(pending_channels)} 个匹配频道")
-            else:
-                # 自动同步场景下复用 24 小时冷却逻辑
-                check_limit = datetime.utcnow() - timedelta(hours=24)
-                pending_channels = [
-                    c for c in matched_channels 
-                    if not c.check_date or c.check_date < check_limit
-                ]
-                print(f"DEBUG: [后台检测] 自动模式，匹配 {len(matched_channels)} 个频道，其中 {len(pending_channels)} 个需要重新探测")
+            # 彻底移除冷却限制：只要触发此任务，就对所有匹配频道进行探测
+            pending_channels = matched_channels
+            print(f"DEBUG: [后台检测] 开始探测全部 {len(pending_channels)} 个匹配频道")
             
             if pending_channels:
                 print(f"[后台检测] 聚合源 {out.id} 触发同步深度检测，待测: {len(pending_channels)}")

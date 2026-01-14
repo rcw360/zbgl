@@ -118,6 +118,7 @@
                     <select id="sub_auto_update"
                         style="width: 100%; padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: #fff; border-radius: 8px; outline: none;">
                         <option value="0">自动更新: 关闭 (手动刷新)</option>
+                        <option value="2">自动更新: 每 2 分钟 (测试用)</option>
                         <option value="60">自动更新: 每 1 小时</option>
                         <option value="720">自动更新: 每 12 小时</option>
                         <option value="1440">自动更新: 每 24 小时</option>
@@ -202,6 +203,7 @@
                         <select id="out_auto_update"
                             style="width: 100%; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; border-radius: 8px; outline: none; font-size: 0.9em; cursor: pointer;">
                             <option value="0">自动更新: 关闭 (手动刷新)</option>
+                            <option value="2">自动更新: 每 2 分钟 (测试用)</option>
                             <option value="60">自动更新: 每 1 小时</option>
                             <option value="120">自动更新: 每 2 小时</option>
                             <option value="240">自动更新: 每 4 小时</option>
@@ -1516,13 +1518,14 @@
         }
 
         async function refreshSub(id) {
-            showStatus('正在抓取中...');
+            showToast('正在抓取中...', 'info');
             const res = await fetch(`/subscriptions/${id}/refresh`, { method: 'POST' });
             if (res.ok) {
                 const data = await res.json();
-                showStatus(`刷新成功: ${data.message}`);
+                showToast(`刷新成功: ${data.message}`, 'success');
+                fetchSubs();
             } else {
-                showStatus('刷新失败，请检查 URL 或网络');
+                showToast('刷新失败，请检查 URL 或网络', 'error');
             }
         }
 
@@ -1752,7 +1755,7 @@
                             </div>
                             <div style="font-size: 0.85em; opacity: 0.7; margin-top: 6px; display: flex; align-items: center; gap: 10px;">
                                 <span>正则: <code>${o.filter_regex || '.*'}</code></span>
-                                ${o.auto_update_minutes > 0 ? `<span style="color: #a5b4fc;">• 🔄 每${o.auto_update_minutes >= 60 ? o.auto_update_minutes / 60 + '时' : o.auto_update_minutes + '分'}同步</span>` : ''}
+                                ${o.auto_update_minutes > 0 ? `<span style="color: #a5b4fc;">• 🔄 每${o.auto_update_minutes >= 60 ? o.auto_update_minutes / 60 + '时' : o.auto_update_minutes + '分'}同步</span> <span id="countdown_${o.id}" class="countdown-timer" data-last="${o.last_updated}" data-interval="${o.auto_update_minutes}" style="color: #fbbf24; margin-left: 2px; font-size: 0.9em;"></span>` : ''}
                                 ${o.auto_visual_check ? `<span style="color: #fbbf24;">• 📺 自动检测</span>` : ''}
                             </div>
                             <div style="font-size: 0.8em; opacity: 0.5; margin-top: 6px;">
@@ -1996,6 +1999,42 @@
                 master.indeterminate = selected > 0 && !allSelected;
             }
         }
+
+        function updateCountdowns() {
+            const timers = document.querySelectorAll('.countdown-timer');
+            const now = new Date();
+
+            timers.forEach(t => {
+                const lastStr = t.dataset.last;
+                const intervalMins = parseInt(t.dataset.interval);
+                if (!lastStr || !intervalMins) return;
+
+                // Comptaible parsing
+                let dateStr = lastStr.replace(' ', 'T');
+                if (!dateStr.endsWith('Z') && !dateStr.includes('+')) dateStr += 'Z';
+
+                const last = new Date(dateStr);
+                const next = new Date(last.getTime() + intervalMins * 60000);
+
+                const diff = next - now;
+
+                if (diff > 0) {
+                    const hours = Math.floor(diff / 3600000);
+                    const mins = Math.floor((diff % 3600000) / 60000);
+                    const secs = Math.floor((diff % 60000) / 1000);
+
+                    let text = `(${mins}分${secs}秒)`;
+                    if (hours > 0) text = `(${hours}时${mins}分)`;
+
+                    t.innerText = text;
+                    t.style.opacity = '0.9';
+                } else {
+                    t.innerText = '(准备更新...)';
+                    t.style.opacity = '1';
+                }
+            });
+        }
+        setInterval(updateCountdowns, 1000);
 
         fetchSubs();
         fetchOutputs();
