@@ -24,10 +24,44 @@ async def create_output(out: OutputSource, session: Session = Depends(get_sessio
     session.refresh(out)
     return out
 
-@router.get("/outputs/", response_model=List[OutputSource])
+@router.get("/outputs/")
 def list_outputs(session: Session = Depends(get_session)):
-    """聚合源列表"""
-    return session.exec(select(OutputSource)).all()
+    """聚合源列表，包含详细统计"""
+    outputs = session.exec(select(OutputSource)).all()
+    results = []
+    
+    for out in outputs:
+        # 获取关联的所有订阅 ID
+        try:
+            sub_ids = json.loads(out.subscription_ids)
+        except:
+            sub_ids = []
+            
+        # 获取这些订阅下的所有频道
+        channels = session.exec(select(Channel).where(Channel.subscription_id.in_(sub_ids))).all()
+        
+        # 使用生成的逻辑进行过滤
+        try:
+            keywords = json.loads(out.keywords)
+        except:
+            keywords = []
+            
+        filtered = M3UGenerator.filter_channels(channels, out.filter_regex, keywords)
+        
+        total = len(filtered)
+        enabled = len([c for c in filtered if c.is_enabled])
+        disabled = total - enabled
+        
+        # 转为字典并添加统计
+        out_dict = out.model_dump()
+        out_dict.update({
+            "total_count": total,
+            "enabled_count": enabled,
+            "disabled_count": disabled
+        })
+        results.append(out_dict)
+        
+    return results
 
 @router.delete("/outputs/{output_id}")
 def delete_output(output_id: int, session: Session = Depends(get_session)):

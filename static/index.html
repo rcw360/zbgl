@@ -1688,26 +1688,47 @@
                 list.innerHTML = data.map(o => {
                     const statusColor = o.last_update_status && o.last_update_status.startsWith('Error') ? '#ef4444' : '#10b981';
                     const subIds = JSON.parse(o.subscription_ids || "[]");
+                    let keywordsArr = [];
+                    try { keywordsArr = JSON.parse(o.keywords || "[]"); } catch (e) { }
+
+                    const tagsHtml = keywordsArr.map(k => {
+                        const val = typeof k === 'string' ? k : k.value;
+                        return `<span style="background: rgba(99,102,241,0.15); color: #a5b4fc; padding: 1px 6px; border-radius: 4px; font-size: 0.75em; border: 1px solid rgba(99,102,241,0.2);">${val}</span>`;
+                    }).join(' ');
+
                     return `
                     <div class="output-item-card ${o.is_enabled === false ? 'disabled-card' : ''}">
                         <div class="card-info">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <strong style="font-size: 1.1em; color: var(--primary);">${o.name}</strong>
-                                ${o.is_enabled === false ? '<span style="font-size: 0.75em; background: #ef4444; color: #fff; padding: 2px 6px; border-radius: 4px;">已禁用</span>' : '<span style="font-size: 0.75em; background: #10b981; color: #fff; padding: 2px 6px; border-radius: 4px;">运行中</span>'}
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <strong style="font-size: 1.1em; color: var(--primary);">${o.name}</strong>
+                                    ${o.is_enabled === false ? '<span style="font-size: 0.75em; background: #ef4444; color: #fff; padding: 2px 6px; border-radius: 4px;">已禁用</span>' : '<span style="font-size: 0.75em; background: #10b981; color: #fff; padding: 2px 6px; border-radius: 4px;">运行中</span>'}
+                                </div>
+                                <div style="display: flex; gap: 5px;">
+                                    ${o.auto_update_minutes > 0 ? `<span title="自动同步已开启" style="font-size: 1.1em;">🔄</span>` : ''}
+                                    ${o.auto_visual_check ? `<span title="自动深度检测已开启" style="font-size: 1.1em;">📺</span>` : ''}
+                                </div>
                             </div>
                             <div class="url-display" onclick="copyToClipboard('${window.location.origin}/m3u/${o.slug}')">
                                 ${window.location.origin}/m3u/${o.slug}
                             </div>
-                            <div style="font-size: 0.85em; opacity: 0.7; margin-top: 4px;">
+                            <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">
+                                ${tagsHtml || `<span style="opacity: 0.5; font-size: 0.8em;">(无筛选词)</span>`}
+                            </div>
+                            <div style="font-size: 0.85em; opacity: 0.8; margin-top: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <span style="color: #cbd5e1;">📊 频道: <strong>${o.total_count || 0}</strong> 总计</span>
+                                <span style="color: #10b981;">✅ <strong>${o.enabled_count || 0}</strong> 启用</span>
+                                <span style="color: #ef4444;">❌ <strong>${o.disabled_count || 0}</strong> 禁用</span>
+                                <span style="opacity: 0.6;">(来源: ${subIds.length})</span>
+                            </div>
+                            <div style="font-size: 0.85em; opacity: 0.7; margin-top: 6px; display: flex; align-items: center; gap: 10px;">
                                 <span>正则: <code>${o.filter_regex || '.*'}</code></span>
-                                <span style="margin-left: 10px;">• 包含 ${subIds.length} 个源</span>
-                                ${o.auto_update_minutes > 0 ? `<span style="margin-left: 10px; color: #a5b4fc;">• 🔄 每${o.auto_update_minutes >= 60 ? o.auto_update_minutes / 60 + '时' : o.auto_update_minutes + '分'}同步</span>` : ''}
+                                ${o.auto_update_minutes > 0 ? `<span style="color: #a5b4fc;">• 🔄 每${o.auto_update_minutes >= 60 ? o.auto_update_minutes / 60 + '时' : o.auto_update_minutes + '分'}同步</span>` : ''}
+                                ${o.auto_visual_check ? `<span style="color: #fbbf24;">• 📺 自动检测</span>` : ''}
                             </div>
-                            <div style="font-size: 0.8em; opacity: 0.5; margin-top: 4px;">
+                            <div style="font-size: 0.8em; opacity: 0.5; margin-top: 6px;">
                                 最后同步: ${formatDate(o.last_updated)} ${o.last_update_status ? `(<span style="color: ${statusColor};">${o.last_update_status}</span>)` : ''}
-                            </div>
-                            <div style="font-size: 0.8em; opacity: 0.6; margin-top: 2px;">
-                                📡 最近请求: ${formatDate(o.last_request_time)}
+                                <span style="margin-left: 12px;">📡 最近请求: ${formatDate(o.last_request_time)}</span>
                             </div>
                         </div>
                         <div style="margin-top: 10px; display: flex; gap: 10px;">

@@ -51,3 +51,4 @@ class OutputSource(SQLModel, table=True):
     last_request_time: Optional[datetime] = None # 最近被请求的时间
     is_enabled: bool = Field(default=True) # 是否启用该聚合源
     auto_update_minutes: int = Field(default=0) # 自动同步频率 (分钟)
+    auto_visual_check: bool = Field(default=False) # 同步后自动执行深度检测

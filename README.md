@@ -28,6 +28,11 @@
    docker-compose up -d
    ```
 3. **访问界面**：在浏览器打开 `http://localhost:8000`
+4. **更新方法**：
+   ```bash
+   git pull
+   docker-compose up -d --build
+   ```
 > **注意**：所有数据（数据库、缓存）将持久化在当前目录下的 `data/` 文件夹中。
 
 #### 方案二：本地手动运行
